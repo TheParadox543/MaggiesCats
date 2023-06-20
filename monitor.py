@@ -18,6 +18,7 @@ pp = PrettyPrinter(indent=4)
 
 async def give_count_permission(
     saves: int,
+    accuracy: int,
     role: Role,
     counter: Member,
     guild: Guild,
@@ -25,7 +26,7 @@ async def give_count_permission(
     bot: int,
 ):
     """Giving permission to count in respective bots"""
-    if saves >= 1:
+    if saves >= 1 and accuracy >= 99:
         if role in counter.roles:
             reaction = get(
                 guild.emojis,
@@ -47,11 +48,9 @@ async def give_count_permission(
                 role,
                 reason="Doesn't have enough saves",
             )
-            await message.channel.send(
-                f"{counter.mention} doesn't have enough saves to count with <@{bot}>."
-            )
+            await message.channel.send(f"{counter.mention} can't count with <@{bot}>.")
         else:
-            reaction = get(guild.emojis, name="warnmark")
+            reaction = get(guild.emojis, name="warncount")
             if reaction is not None:
                 await message.add_reaction(reaction)
 
@@ -74,34 +73,6 @@ class Monitor(Cog):
         if not isinstance(message.guild, Guild):
             return
 
-        # * c!vote
-        # if message.content.startswith("c!vote"):
-        #     msg = await self.bot.wait_for("message", check=counting_check)
-        #     if not isinstance(msg, Message):
-        #         return
-        #     if len(msg.embeds) != 1:
-        #         return
-
-        #     embed_content = msg.embeds[0].to_dict()
-        #     if "description" not in embed_content:
-        #         return
-        #     embed_description = embed_content["description"]
-        #     saves_str = findall("\d+", embed_description)  # type: ignore
-        #     if len(saves_str) < 1:
-        #         return
-        #     saves = int(saves_str[0])
-        #     countable = message.guild.get_role(COUNTABLE)
-        #     if countable is None:
-        #         return
-        #     await give_count_permission(
-        #         saves,
-        #         countable,
-        #         message.author,
-        #         message.guild,
-        #         msg,
-        #         COUNTING_BOT,
-        #     )
-
         # * c!user
         if message.content.startswith("c!user"):
             msg = await self.bot.wait_for("message", check=counting_check)
@@ -114,7 +85,7 @@ class Monitor(Cog):
             user_name = embed_content.get("title")
             if user_name is None:
                 return
-            await message.channel.send(user_name.split("#")[0])
+            # await message.channel.send(user_name.split("#")[0])
             user = message.guild.get_member_named(user_name.split("#")[0])
             await message.channel.send(f"Counter is: {user}")
             if user is None:
@@ -123,6 +94,7 @@ class Monitor(Cog):
                 return
             embed_field = embed_content["fields"][0]
             field_value = embed_field["value"]
+            accuracy = int(findall("\d+", field_value)[0])  # type: ignore
             saves_str = field_value.split("Saves: ")[1]
             saves = int(findall("\d", saves_str)[0])  # type: ignore
             countable = message.guild.get_role(COUNTABLE)
@@ -130,6 +102,7 @@ class Monitor(Cog):
                 return
             await give_count_permission(
                 saves,
+                accuracy,
                 countable,
                 user,
                 message.guild,
@@ -156,6 +129,7 @@ class Monitor(Cog):
                     return
                 embed_field = embed_content["fields"][0]
                 field_value = embed_field["value"]
+                accuracy = int(findall("\d+", field_value)[0])  # type: ignore
                 saves_str = field_value.split("Saves left: ")[1]
                 saves = int(findall("\d", saves_str)[0])  # type: ignore
                 countable = message.guild.get_role(NUMSELLI_COUNTABLE)
@@ -163,6 +137,7 @@ class Monitor(Cog):
                     return
                 await give_count_permission(
                     saves,
+                    accuracy,
                     countable,
                     user,
                     message.guild,
@@ -188,6 +163,7 @@ class Monitor(Cog):
                     return
                 await give_count_permission(
                     saves,
+                    0,
                     countable,
                     user,
                     message.guild,
@@ -211,6 +187,7 @@ class Monitor(Cog):
                 return
             embed_field = embed_content["fields"][0]
             field_value = embed_field["value"]
+            accuracy = int(findall("\d+", field_value)[0])  # type: ignore
             saves_str = field_value.split("Saves: ")[1]
             saves = int(findall("\d", saves_str)[0])  # type: ignore
             countable = message.guild.get_role(CRAZY_COUNTABLE)
@@ -218,13 +195,13 @@ class Monitor(Cog):
                 return
             await give_count_permission(
                 saves,
+                accuracy,
                 countable,
                 user,
                 message.guild,
                 message,
                 CRAZY_BOT,
             )
-            # await message.channel.send(f"{field_value}")
 
         # * Error from counting
         if (
@@ -236,7 +213,6 @@ class Monitor(Cog):
             content = message.content
             numbers = findall("\d+", content)  # type: ignore
             user_id = int(numbers[0])
-            saves = int(numbers[2])
             user = message.guild.get_member(user_id)
             if user is None:
                 await message.channel.send("Couldn't find who made the mistake")
@@ -244,8 +220,13 @@ class Monitor(Cog):
             countable = message.guild.get_role(COUNTABLE)
             if countable is None:
                 return
+            if "your saves" in content:
+                saves = int(numbers[2])
+            else:
+                saves = 0
             await give_count_permission(
                 saves,
+                0,
                 countable,
                 user,
                 message.guild,
@@ -258,12 +239,11 @@ class Monitor(Cog):
             message.author.id == CRAZY_BOT
             and message.content is not None
             and len(message.embeds) == 0
-            and "has used a save" in message.content
+            and "has used a" in message.content
         ):
             content = message.content
             numbers = findall("\d+", content)  # type: ignore
             user_id = int(numbers[0])
-            saves = int(numbers[1])
             user = message.guild.get_member(user_id)
             if user is None:
                 await message.channel.send("Couldn't find who made the mistake")
@@ -271,8 +251,15 @@ class Monitor(Cog):
             countable = message.guild.get_role(CRAZY_COUNTABLE)
             if countable is None:
                 return
+            if "has used a save" in content:
+                saves = int(numbers[1])
+            elif "has used a channel save" in content:
+                saves = 0
+            else:
+                return
             await give_count_permission(
                 saves,
+                0,
                 countable,
                 user,
                 message.guild,
