@@ -16,7 +16,12 @@ async def on_ready():
     print(f"We have logged in as {bot.user}")
 
 
-bot.load_extension("monitor")
+bot.load_extensions(
+    [
+        "monitor",
+        "presence",
+    ]
+)
 
 bot.run(os.getenv("BOT_TOKEN"))
 
