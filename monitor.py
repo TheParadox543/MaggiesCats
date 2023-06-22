@@ -1,32 +1,81 @@
-from re import match, search, findall
+import json
 from pprint import PrettyPrinter
+from re import findall, match, search
 
-from nextcord import Guild, Member, Message, Role
-from nextcord.ext.commands import Cog, Bot, command, Context, is_owner
+from nextcord import (
+    Embed,
+    Guild,
+    Interaction,
+    Member,
+    Message,
+    Permissions,
+    Role,
+    SlashOption,
+    slash_command,
+)
+from nextcord.ext.commands import Bot, Cog, Context, command, is_owner
 from nextcord.utils import get
 
-COUNTING_BOT = 510016054391734273
+DUCK_BOT = 510016054391734273
 NUMSELLI_BOT = 726560538145849374
 CRAZY_BOT = 935408554997874798
-
-COUNTABLE = 946380662326296646
-NUMSELLI_COUNTABLE = 1001095173205413969
-CRAZY_COUNTABLE = 963244874524667964
-
 pp = PrettyPrinter(indent=4)
+
+
+def read_settings():
+    try:
+        with open("bot_settings.json", "r") as settings:
+            try:
+                content: dict[str, dict[str, int]] = json.load(settings)
+            except json.decoder.JSONDecodeError:
+                content = {
+                    "duck": {
+                        "id": DUCK_BOT,
+                    },
+                    "numselli": {
+                        "id": NUMSELLI_BOT,
+                    },
+                    "crazy": {
+                        "id": CRAZY_BOT,
+                    },
+                }
+    except FileNotFoundError:
+        content = {
+            "duck": {
+                "id": DUCK_BOT,
+            },
+            "numselli": {
+                "id": NUMSELLI_BOT,
+            },
+            "crazy": {
+                "id": CRAZY_BOT,
+            },
+        }
+    return content
 
 
 async def give_count_permission(
     saves: int,
     accuracy: int,
-    role: Role,
     counter: Member,
     guild: Guild,
     message: Message,
-    bot: int,
+    bot: str,
 ):
     """Giving permission to count in respective bots"""
-    if saves >= 1 and accuracy >= 99:
+
+    content = read_settings()
+    bot_id = content[bot]["id"]
+    accuracy_set = content[bot].get("accuracy", 99)
+    role_id = content[bot].get("role", None)
+    if role_id is None:
+        await message.channel.send(f"Role not set for <@{bot_id}>")
+        return
+    role = guild.get_role(role_id)
+    if role is None:
+        await message.channel.send(f"Role could not be found")
+        return
+    if saves >= 1 and accuracy >= accuracy_set:
         if role in counter.roles:
             reaction = get(
                 guild.emojis,
@@ -37,18 +86,20 @@ async def give_count_permission(
         else:
             await counter.add_roles(
                 role,
-                reason="Has enough saves",
+                reason="Meets criteria",
             )
             await message.channel.send(
-                f"{counter.mention} can now count with <@{bot}>."
+                f"{counter.mention} can now count with <@{bot_id}>."
             )
     else:
         if role in counter.roles:
             await counter.remove_roles(
                 role,
-                reason="Doesn't have enough saves",
+                reason="Doesn't satisfy criteria",
             )
-            await message.channel.send(f"{counter.mention} can't count with <@{bot}>.")
+            await message.channel.send(
+                f"{counter.mention} can't count with <@{bot_id}>."
+            )
         else:
             reaction = get(guild.emojis, name="warncount")
             if reaction is not None:
@@ -56,7 +107,7 @@ async def give_count_permission(
 
 
 def counting_check(m: Message):
-    return m.author.id == COUNTING_BOT
+    return m.author.id == DUCK_BOT
 
 
 class Monitor(Cog):
@@ -81,13 +132,14 @@ class Monitor(Cog):
             if len(msg.embeds) != 1:
                 return
 
+            numbers = findall("\d+", message.content)  # type: ignore
+            if len(numbers) == 1:
+                user_id = int(numbers[0])
+            else:
+                user_id = message.author.id
+
             embed_content = msg.embeds[0].to_dict()
-            user_name = embed_content.get("title")
-            if user_name is None:
-                return
-            # await message.channel.send(user_name.split("#")[0])
-            user = message.guild.get_member_named(user_name.split("#")[0])
-            await message.channel.send(f"Counter is: {user}")
+            user = message.guild.get_member(user_id)
             if user is None:
                 return
             if "fields" not in embed_content:
@@ -97,17 +149,13 @@ class Monitor(Cog):
             accuracy = int(findall("\d+", field_value)[0])  # type: ignore
             saves_str = field_value.split("Saves: ")[1]
             saves = int(findall("\d", saves_str)[0])  # type: ignore
-            countable = message.guild.get_role(COUNTABLE)
-            if countable is None:
-                return
             await give_count_permission(
                 saves,
                 accuracy,
-                countable,
                 user,
                 message.guild,
                 msg,
-                COUNTING_BOT,
+                "duck",
             )
 
         # * Numselli
@@ -132,17 +180,13 @@ class Monitor(Cog):
                 accuracy = int(findall("\d+", field_value)[0])  # type: ignore
                 saves_str = field_value.split("Saves left: ")[1]
                 saves = int(findall("\d", saves_str)[0])  # type: ignore
-                countable = message.guild.get_role(NUMSELLI_COUNTABLE)
-                if countable is None:
-                    return
                 await give_count_permission(
                     saves,
                     accuracy,
-                    countable,
                     user,
                     message.guild,
                     message,
-                    NUMSELLI_BOT,
+                    "numselli",
                 )
 
             # * Numselli error
@@ -158,17 +202,13 @@ class Monitor(Cog):
                 if user is None:
                     await message.channel.send("Could not identify the user")
                     return
-                countable = message.guild.get_role(NUMSELLI_COUNTABLE)
-                if countable is None:
-                    return
                 await give_count_permission(
                     saves,
                     0,
-                    countable,
                     user,
                     message.guild,
                     message,
-                    NUMSELLI_BOT,
+                    "numselli",
                 )
 
         # * Crazy Counting user
@@ -177,35 +217,32 @@ class Monitor(Cog):
             embed_title = embed_content.get("title")
             if embed_title is None:
                 return
-            user_name = embed_title.split("Stats for ")[1]
-            if user_name is None:
-                return
-            user = message.guild.get_member_named(user_name.split("#")[0])
-            if user is None:
-                return
-            if "fields" not in embed_content:
-                return
-            embed_field = embed_content["fields"][0]
-            field_value = embed_field["value"]
-            accuracy = int(findall("\d+", field_value)[0])  # type: ignore
-            saves_str = field_value.split("Saves: ")[1]
-            saves = int(findall("\d", saves_str)[0])  # type: ignore
-            countable = message.guild.get_role(CRAZY_COUNTABLE)
-            if countable is None:
-                return
-            await give_count_permission(
-                saves,
-                accuracy,
-                countable,
-                user,
-                message.guild,
-                message,
-                CRAZY_BOT,
-            )
+            if embed_title.startswith("Stats"):
+                user_name = embed_title.split("Stats for ")[1]
+                if user_name is None:
+                    return
+                user = message.guild.get_member_named(user_name.split("#")[0])
+                if user is None:
+                    return
+                if "fields" not in embed_content:
+                    return
+                embed_field = embed_content["fields"][0]
+                field_value = embed_field["value"]
+                accuracy = int(findall("\d+", field_value)[0])  # type: ignore
+                saves_str = field_value.split("Saves: ")[1]
+                saves = int(findall("\d", saves_str)[0])  # type: ignore
+                await give_count_permission(
+                    saves,
+                    accuracy,
+                    user,
+                    message.guild,
+                    message,
+                    "crazy",
+                )
 
         # * Error from counting
         if (
-            message.author.id == COUNTING_BOT
+            message.author.id == DUCK_BOT
             and message.content is not None
             and len(message.embeds) == 0
             and "You have" in message.content
@@ -217,9 +254,6 @@ class Monitor(Cog):
             if user is None:
                 await message.channel.send("Couldn't find who made the mistake")
                 return
-            countable = message.guild.get_role(COUNTABLE)
-            if countable is None:
-                return
             if "your saves" in content:
                 saves = int(numbers[2])
             else:
@@ -227,11 +261,10 @@ class Monitor(Cog):
             await give_count_permission(
                 saves,
                 0,
-                countable,
                 user,
                 message.guild,
                 message,
-                COUNTING_BOT,
+                "duck",
             )
 
         # * Error from crazy counting
@@ -248,9 +281,6 @@ class Monitor(Cog):
             if user is None:
                 await message.channel.send("Couldn't find who made the mistake")
                 return
-            countable = message.guild.get_role(CRAZY_COUNTABLE)
-            if countable is None:
-                return
             if "has used a save" in content:
                 saves = int(numbers[1])
             elif "has used a channel save" in content:
@@ -260,11 +290,10 @@ class Monitor(Cog):
             await give_count_permission(
                 saves,
                 0,
-                countable,
                 user,
                 message.guild,
                 message,
-                COUNTING_BOT,
+                "duck",
             )
 
     @command(name="clear")
@@ -272,9 +301,76 @@ class Monitor(Cog):
     async def remove_roles(self, ctx: Context, role: Role):
         """Remove all users from the role"""
         for member in role.members:
-            # if member.name == "paradox543":
             await member.remove_roles(role, reason="Clearing roles from users")
             await ctx.send(f"{role} removed from {member.name}")
+
+    @slash_command(
+        default_member_permissions=Permissions(manage_guild=True),
+    )
+    async def botsettings(self, ctx):
+        return
+
+    @botsettings.subcommand(
+        name="set",
+        description="Set the requirements for each bot",
+    )
+    async def set(
+        self,
+        ctx: Interaction,
+        bot: str = SlashOption(
+            name="bot",
+            description="The bot",
+            choices=[
+                "duck",
+                "numselli",
+                "crazy",
+            ],
+            required=True,
+        ),
+        role: Role | None = None,
+        accuracy: int | None = None,
+    ):
+        """Set the requirements to count for each bot"""
+        content = read_settings()
+        with open("bot_settings.json", "w+") as settings:
+            bot_data = content[bot]
+            if role is not None:
+                bot_data["role"] = role.id
+            if accuracy is not None:
+                bot_data["accuracy"] = accuracy
+            content[bot] = bot_data
+            json.dump(content, settings, indent=4)
+        description = f"Bot: <@{bot_data['id']}>"
+        if bot_data.get("role"):
+            description += f"\nRole: <@&{bot_data['role']}>"
+        if bot_data.get("accuracy"):
+            description += f"\nAccuracy: {bot_data['accuracy']}"
+        embedVar = Embed(title=bot, description=description)
+        await ctx.send(embed=embedVar)
+
+    @botsettings.subcommand()
+    async def view(
+        self,
+        ctx: Interaction,
+        bot: str = SlashOption(
+            description="The bot to be checked",
+            choices=[
+                "duck",
+                "numselli",
+                "crazy",
+            ],
+        ),
+    ):
+        """Check the settings"""
+        content = read_settings()
+        bot_data = content[bot]
+        description = f"Bot: <@{bot_data['id']}>"
+        if bot_data.get("role"):
+            description += f"\nRole: <@&{bot_data['role']}>"
+        if bot_data.get("accuracy"):
+            description += f"\nAccuracy: {bot_data['accuracy']}"
+        embedVar = Embed(title=bot, description=description)
+        await ctx.send(embed=embedVar)
 
 
 def setup(bot: Bot):

@@ -18,12 +18,12 @@ async def on_ready():
 
 bot.load_extensions(
     [
-        "monitor",
-        "presence",
+        # "monitor",
+        # "presence",
     ]
 )
 
-bot.run(os.getenv("BOT_TOKEN"))
+bot.run(os.getenv("BETA_TOKEN"))
 
 
 # * invite link

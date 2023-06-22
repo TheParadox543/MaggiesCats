@@ -20,14 +20,12 @@ bot_channel_link = {
     COUNTING_BOT: COUNTING_CHANNEL,
     NUMSELLI_BOT: NUMSELLI_CATEGORY,
     CRAZY_BOT: CRAZY_CATEGORY,
-    PARADOX_ID: COUNTING_CHANNEL,
 }
 
 bot_role = {
     COUNTING_BOT: DUCK_ROLE,
     NUMSELLI_BOT: NUMSELLI_ROLE,
     CRAZY_BOT: CRAZY_ROLE,
-    PARADOX_ID: DUCK_ROLE,
 }
 
 
@@ -75,13 +73,12 @@ class Presence(Cog):
         elif isinstance(channel, CategoryChannel):
             await channel.set_permissions(role, send_messages=False)
             for item in channel.text_channels:
-                await item.send("Channel locked as bot is offline.")
+                await item.send("Channel locked as bot is online.")
 
     @Cog.listener()
     async def on_presence_update(self, before: Member, after: Member):
-        """"""
+        """Listen for when there is a change in presence"""
         if before.status != after.status and before.id in bot_channel_link:
-            print(after.name, before.status, after.status)
             if before.status == "online" and after.status == "offline":
                 await self.lock_channel(before.id)
             elif before.status == "offline" and after.status == "online":
