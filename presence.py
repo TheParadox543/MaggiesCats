@@ -48,11 +48,12 @@ class Presence(Cog):
         if role is None:
             print("Error")
             return
+        permissions = channel.overwrites_for(role)
+        permissions.send_messages = False
+        await channel.set_permissions(role, overwrite=permissions)
         if isinstance(channel, TextChannel):
-            await channel.set_permissions(role, send_messages=False)
             await channel.send("Channel locked as bot is offline.")
         elif isinstance(channel, CategoryChannel):
-            await channel.set_permissions(role, send_messages=False)
             for item in channel.text_channels:
                 await item.send("Channel locked as bot is offline.")
 
@@ -67,11 +68,12 @@ class Presence(Cog):
         if role is None:
             print("Error")
             return
+        permissions = channel.overwrites_for(role)
+        permissions.send_messages = True
+        await channel.set_permissions(role, overwrite=permissions)
         if isinstance(channel, TextChannel):
-            await channel.set_permissions(role, send_messages=True)
             await channel.send("Channel unlocked as bot is online.")
         elif isinstance(channel, CategoryChannel):
-            await channel.set_permissions(role, send_messages=False)
             for item in channel.text_channels:
                 await item.send("Channel locked as bot is online.")
 
