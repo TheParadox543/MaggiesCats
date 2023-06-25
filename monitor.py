@@ -23,34 +23,25 @@ pp = PrettyPrinter(indent=4)
 
 
 def read_settings():
+    content = {
+        "duck": {
+            "id": DUCK_BOT,
+        },
+        "numselli": {
+            "id": NUMSELLI_BOT,
+        },
+        "crazy": {
+            "id": CRAZY_BOT,
+        },
+    }
     try:
         with open("bot_settings.json", "r") as settings:
             try:
                 content: dict[str, dict[str, int]] = json.load(settings)
             except json.decoder.JSONDecodeError:
-                content = {
-                    "duck": {
-                        "id": DUCK_BOT,
-                    },
-                    "numselli": {
-                        "id": NUMSELLI_BOT,
-                    },
-                    "crazy": {
-                        "id": CRAZY_BOT,
-                    },
-                }
+                pass
     except FileNotFoundError:
-        content = {
-            "duck": {
-                "id": DUCK_BOT,
-            },
-            "numselli": {
-                "id": NUMSELLI_BOT,
-            },
-            "crazy": {
-                "id": CRAZY_BOT,
-            },
-        }
+        pass
     return content
 
 
@@ -204,7 +195,7 @@ class Monitor(Cog):
                     return
                 await give_count_permission(
                     saves,
-                    0,
+                    99,
                     user,
                     message.guild,
                     message,
@@ -260,7 +251,7 @@ class Monitor(Cog):
                 saves = 0
             await give_count_permission(
                 saves,
-                0,
+                99,
                 user,
                 message.guild,
                 message,
@@ -289,11 +280,11 @@ class Monitor(Cog):
                 return
             await give_count_permission(
                 saves,
-                0,
+                99,
                 user,
                 message.guild,
                 message,
-                "duck",
+                "crazy",
             )
 
     @command(name="clear")
