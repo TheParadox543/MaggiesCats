@@ -19,8 +19,8 @@ async def on_ready():
 
 bot.load_extensions(
     [
-        # "monitor",
-        # "presence",
+        "monitor",
+        "presence",
         "stats",
     ]
 )
