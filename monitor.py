@@ -16,7 +16,10 @@ from nextcord import (
 from nextcord.ext.commands import Bot, Cog, Context, command, is_owner
 from nextcord.utils import get
 
+from database import update_user
+
 DUCK_BOT = 510016054391734273
+CLASSIC_BOT = 639599059036012605
 NUMSELLI_BOT = 726560538145849374
 CRAZY_BOT = 935408554997874798
 pp = PrettyPrinter(indent=4)
@@ -136,17 +139,48 @@ class Monitor(Cog):
             if "fields" not in embed_content:
                 return
             embed_field = embed_content["fields"][0]
-            field_value = embed_field["value"]
-            accuracy = int(findall("\d+", field_value)[0])  # type: ignore
-            saves_str = field_value.split("Saves: ")[1]
-            saves = int(findall("\d", saves_str)[0])  # type: ignore
+            field_value = embed_field["value"].replace(",", "")
+            numbers_list: list[str] = findall("[\d\.]+", field_value)  # type: ignore
+            accuracy = float(numbers_list[0])
+            saves = float(numbers_list[-2])
+            update_user(
+                message.author,
+                float(numbers_list[0]),
+                int(numbers_list[1]),
+                int(numbers_list[2]),
+                msg.author.id,
+            )
             await give_count_permission(
-                saves,
-                accuracy,
+                int(saves),
+                int(accuracy),
                 user,
                 message.guild,
                 msg,
                 "duck",
+            )
+
+        # * classic bot
+        elif message.author.id == CLASSIC_BOT and len(message.embeds) == 1:
+            embed_content = message.embeds[0].to_dict()
+            # await message.channel.send(f"{embed_content}")
+            if "fields" not in embed_content:
+                return
+            if "Global Stats" not in embed_content["fields"][0]["name"]:
+                return
+            if "author" not in embed_content or "name" not in embed_content["author"]:
+                return
+            user_name = embed_content["author"]["name"]
+            user = message.guild.get_member_named(user_name)
+            if user is None:
+                return
+            field_value = embed_content["fields"][0]["value"].replace(",", "")
+            numbers_list: list[str] = findall("[\d\.]+", field_value)  # type: ignore
+            update_user(
+                user,
+                float(numbers_list[0]),
+                int(numbers_list[1]),
+                int(numbers_list[2]),
+                message.author.id,
             )
 
         # * Numselli
@@ -167,13 +201,21 @@ class Monitor(Cog):
                 if "fields" not in embed_content:
                     return
                 embed_field = embed_content["fields"][0]
-                field_value = embed_field["value"]
-                accuracy = int(findall("\d+", field_value)[0])  # type: ignore
+                field_value = embed_field["value"].replace(",", "")
+                numbers_list: list[str] = findall("[\d\.]+", field_value)  # type: ignore
+                update_user(
+                    user,
+                    float(numbers_list[0]),
+                    int(numbers_list[1]),
+                    int(numbers_list[2]),
+                    message.author.id,
+                )
+                accuracy = float(numbers_list[0])  # type: ignore
                 saves_str = field_value.split("Saves left: ")[1]
                 saves = int(findall("\d", saves_str)[0])  # type: ignore
                 await give_count_permission(
                     saves,
-                    accuracy,
+                    int(accuracy),
                     user,
                     message.guild,
                     message,
@@ -218,13 +260,21 @@ class Monitor(Cog):
                 if "fields" not in embed_content:
                     return
                 embed_field = embed_content["fields"][0]
-                field_value = embed_field["value"]
-                accuracy = int(findall("\d+", field_value)[0])  # type: ignore
+                field_value = embed_field["value"].replace(",", "")
+                numbers_list: list[str] = findall("[\d\.]+", field_value)  # type: ignore
+                update_user(
+                    user,
+                    float(numbers_list[0]),
+                    int(numbers_list[1]),
+                    int(numbers_list[2]),
+                    message.author.id,
+                )
+                accuracy = float(numbers_list[0])  # type: ignore
                 saves_str = field_value.split("Saves: ")[1]
                 saves = int(findall("\d", saves_str)[0])  # type: ignore
                 await give_count_permission(
                     saves,
-                    accuracy,
+                    int(accuracy),
                     user,
                     message.guild,
                     message,

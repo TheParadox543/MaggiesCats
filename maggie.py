@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from nextcord import Intents
 from nextcord.ext.commands import Bot
 
+
 load_dotenv()
 intents = Intents.all()
 
@@ -20,6 +21,7 @@ bot.load_extensions(
     [
         # "monitor",
         # "presence",
+        "stats",
     ]
 )
 
