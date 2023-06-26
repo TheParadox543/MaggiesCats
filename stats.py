@@ -38,7 +38,7 @@ class Stats(Cog):
         msg = ""
         if custom_rate is not None:
             c_rate = Decimal(custom_rate) / 100
-            if c_rate == 1:
+            if c_rate >= 1:
                 c_rate = Decimal("0.99999")
 
         og_post = find_user(user.id, bot_collection[0])

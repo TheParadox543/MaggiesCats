@@ -100,6 +100,46 @@ async def give_count_permission(
                 await message.add_reaction(reaction)
 
 
+def name_extractor(title: str):
+    """Extract the user name from the title"""
+
+    if "Stats" in title:
+        title = title.split("Stats for ")[1]
+    #     return name.split("#")[0]
+    # else:
+    return title.split("#")[0]
+
+
+def stats_embed_extractor(embed: Embed):
+    """Extract the numbers from an embed"""
+
+    embed_content = embed.to_dict()
+    if "fields" not in embed_content:
+        return None, None
+    if "Stats" not in embed_content["fields"][0]["name"]:
+        return None, None
+
+    user_name = None
+    if "title" in embed_content:
+        user_name = name_extractor(embed_content["title"])
+    elif "author" in embed_content:
+        if "name" in embed_content["author"]:
+            user_name = embed_content["author"]["name"]
+
+    field_content = embed_content["fields"][0]["value"].replace(",", "")
+    numbers_list: list[str] = findall("[\d\.]+", field_content)
+    numbers_return = (
+        float(numbers_list[0]),
+        int(numbers_list[1]),
+        int(numbers_list[2]),
+    )
+    if "Saves" in field_content:
+        saves_str = field_content.split("Saves")[1]
+        saves = int(findall("\d+", saves_str)[0])
+        numbers_return = numbers_return + (saves,)
+    return user_name, numbers_return
+
+
 def counting_check(m: Message):
     return m.author.id == DUCK_BOT
 
@@ -129,30 +169,24 @@ class Monitor(Cog):
             numbers = findall("\d+", message.content)  # type: ignore
             if len(numbers) == 1:
                 user_id = int(numbers[0])
+                user = message.guild.get_member(user_id)
             else:
-                user_id = message.author.id
+                user = message.author
 
-            embed_content = msg.embeds[0].to_dict()
-            user = message.guild.get_member(user_id)
+            user_name, numbers_list = stats_embed_extractor(msg.embeds[0])
             if user is None:
                 return
-            if "fields" not in embed_content:
+            if numbers_list is None:
                 return
-            embed_field = embed_content["fields"][0]
-            field_value = embed_field["value"].replace(",", "")
-            numbers_list: list[str] = findall("[\d\.]+", field_value)  # type: ignore
-            accuracy = float(numbers_list[0])
-            saves = float(numbers_list[-2])
+            saves = numbers_list[-1]
             update_user(
                 message.author,
-                float(numbers_list[0]),
-                int(numbers_list[1]),
-                int(numbers_list[2]),
+                *numbers_list[0:3],
                 msg.author.id,
             )
             await give_count_permission(
-                int(saves),
-                int(accuracy),
+                numbers_list[-1],
+                int(numbers_list[0]),
                 user,
                 message.guild,
                 msg,
@@ -161,25 +195,19 @@ class Monitor(Cog):
 
         # * classic bot
         elif message.author.id == CLASSIC_BOT and len(message.embeds) == 1:
-            embed_content = message.embeds[0].to_dict()
-            # await message.channel.send(f"{embed_content}")
-            if "fields" not in embed_content:
+            user_name, numbers_list = stats_embed_extractor(message.embeds[0])
+            if user_name is None:
+                await message.channel.send("Could not find user name")
                 return
-            if "Global Stats" not in embed_content["fields"][0]["name"]:
+            if numbers_list is None:
+                await message.channel.send("Could not read the field")
                 return
-            if "author" not in embed_content or "name" not in embed_content["author"]:
-                return
-            user_name = embed_content["author"]["name"]
             user = message.guild.get_member_named(user_name)
             if user is None:
                 return
-            field_value = embed_content["fields"][0]["value"].replace(",", "")
-            numbers_list: list[str] = findall("[\d\.]+", field_value)  # type: ignore
             update_user(
                 user,
-                float(numbers_list[0]),
-                int(numbers_list[1]),
-                int(numbers_list[2]),
+                *numbers_list[0:3],
                 message.author.id,
             )
 
@@ -192,30 +220,24 @@ class Monitor(Cog):
 
             # * Numselli user
             if embed_title.startswith("Stats"):
-                user_name = embed_title.split("Stats for ")[1]
+                user_name, numbers_list = stats_embed_extractor(message.embeds[0])
                 if user_name is None:
+                    await message.channel.send("Could not find the user")
+                    return
+                if numbers_list is None:
+                    await message.channel.send("Could not read the field")
                     return
                 user = message.guild.get_member_named(user_name)
                 if user is None:
                     return
-                if "fields" not in embed_content:
-                    return
-                embed_field = embed_content["fields"][0]
-                field_value = embed_field["value"].replace(",", "")
-                numbers_list: list[str] = findall("[\d\.]+", field_value)  # type: ignore
                 update_user(
                     user,
-                    float(numbers_list[0]),
-                    int(numbers_list[1]),
-                    int(numbers_list[2]),
+                    *numbers_list[0:3],
                     message.author.id,
                 )
-                accuracy = float(numbers_list[0])  # type: ignore
-                saves_str = field_value.split("Saves left: ")[1]
-                saves = int(findall("\d", saves_str)[0])  # type: ignore
                 await give_count_permission(
-                    saves,
-                    int(accuracy),
+                    numbers_list[-1],
+                    int(numbers_list[0]),
                     user,
                     message.guild,
                     message,
@@ -246,40 +268,28 @@ class Monitor(Cog):
 
         # * Crazy Counting user
         elif message.author.id == CRAZY_BOT and len(message.embeds) == 1:
-            embed_content = message.embeds[0].to_dict()
-            embed_title = embed_content.get("title")
-            if embed_title is None:
+            user_name, numbers_list = stats_embed_extractor(message.embeds[0])
+            if numbers_list is None:
+                await message.channel.send("Could not read field")
                 return
-            if embed_title.startswith("Stats"):
-                user_name = embed_title.split("Stats for ")[1]
-                if user_name is None:
-                    return
-                user = message.guild.get_member_named(user_name.split("#")[0])
-                if user is None:
-                    return
-                if "fields" not in embed_content:
-                    return
-                embed_field = embed_content["fields"][0]
-                field_value = embed_field["value"].replace(",", "")
-                numbers_list: list[str] = findall("[\d\.]+", field_value)  # type: ignore
-                update_user(
-                    user,
-                    float(numbers_list[0]),
-                    int(numbers_list[1]),
-                    int(numbers_list[2]),
-                    message.author.id,
-                )
-                accuracy = float(numbers_list[0])  # type: ignore
-                saves_str = field_value.split("Saves: ")[1]
-                saves = int(findall("\d", saves_str)[0])  # type: ignore
-                await give_count_permission(
-                    saves,
-                    int(accuracy),
-                    user,
-                    message.guild,
-                    message,
-                    "crazy",
-                )
+            if user_name is None:
+                return
+            user = message.guild.get_member_named(user_name.split("#")[0])
+            if user is None:
+                return
+            update_user(
+                user,
+                *numbers_list[0:3],
+                message.author.id,
+            )
+            await give_count_permission(
+                numbers_list[-1],
+                int(numbers_list[0]),
+                user,
+                message.guild,
+                message,
+                "crazy",
+            )
 
         # * Error from counting
         if (
