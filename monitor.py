@@ -127,7 +127,7 @@ def stats_embed_extractor(embed: Embed):
             user_name = embed_content["author"]["name"]
 
     field_content = embed_content["fields"][0]["value"].replace(",", "")
-    numbers_list: list[str] = findall("[\d\.]+", field_content)
+    numbers_list: list[str] = findall("[\d\.]+", field_content)  # type: ignore
     numbers_return = (
         float(numbers_list[0]),
         int(numbers_list[1]),
@@ -135,7 +135,7 @@ def stats_embed_extractor(embed: Embed):
     )
     if "Saves" in field_content:
         saves_str = field_content.split("Saves")[1]
-        saves = int(findall("\d+", saves_str)[0])
+        saves = int(findall("\d+", saves_str)[0])  # type: ignore
         numbers_return = numbers_return + (saves,)
     return user_name, numbers_return
 
