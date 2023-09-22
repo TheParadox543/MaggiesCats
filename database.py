@@ -9,6 +9,7 @@ load_dotenv()
 ca = where()
 
 client = MongoClient(getenv("DB_LOCAL_TOKEN"), tlsCAFile=ca)
+# client = MongoClient(getenv("DB_USA_TOKEN"), tlsCAFile=ca)
 
 db = client["maggie"]
 classic_collection = db["classic_collection"]

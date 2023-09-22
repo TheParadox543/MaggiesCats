@@ -26,6 +26,7 @@ bot.load_extensions(
 )
 
 bot.run(os.getenv("BETA_TOKEN"))
+# bot.run(os.getenv("BOT_TOKEN"))
 
 
 # * invite link

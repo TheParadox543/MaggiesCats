@@ -273,9 +273,11 @@ class Monitor(Cog):
                 await message.channel.send("Could not read field")
                 return
             if user_name is None:
+                await message.channel.send("Could not find user name")
                 return
-            user = message.guild.get_member_named(user_name.split("#")[0])
+            user = message.guild.get_member_named(user_name.replace("\\", ""))
             if user is None:
+                await message.channel.send(f"Could not find the counter: `{user_name}`")
                 return
             update_user(
                 user,

@@ -38,15 +38,12 @@ class Presence(Cog):
     async def lock_channel(self, bot_id: int):
         """Lock the channel if bot is offline"""
         channel = self.bot.get_channel(bot_channel_link[bot_id])
-        print(type(channel))
         if not isinstance(channel, TextChannel) and not isinstance(
             channel, CategoryChannel
         ):
-            print("Not a valid channel")
             return
         role = channel.guild.get_role(bot_role[bot_id])
         if role is None:
-            print("Error")
             return
         permissions = channel.overwrites_for(role)
         permissions.send_messages = False
@@ -66,7 +63,6 @@ class Presence(Cog):
             return
         role = channel.guild.get_role(bot_role[bot_id])
         if role is None:
-            print("Error")
             return
         permissions = channel.overwrites_for(role)
         permissions.send_messages = True
